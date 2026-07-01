@@ -17,6 +17,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Await the server here to keep it running.
     // The '?' operator will propagate any startup/runtime errors.
+    println!("Serving on port: {}", port);
+
     axum::serve(listener, app).await?;
 
     Ok(())

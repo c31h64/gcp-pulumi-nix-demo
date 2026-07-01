@@ -13,7 +13,7 @@ in
     tag = "0.0.1";
     contents = [ app ];
     config = {
-      Cmd = ["/bin/c31h64-twt-axum-hw-cloud-run"];
+      Entrypoint=["${app}/bin/app"];
       Env = ["PORT=8080"];
     };
   }
