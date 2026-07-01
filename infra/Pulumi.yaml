@@ -1,0 +1,11 @@
+name: infra
+description: A demo to study nix flakes, pulumi, nix-build and gcrane
+runtime:
+  name: python
+  options:
+    toolchain: pip
+    virtualenv: venv
+config:
+  pulumi:tags:
+    value:
+      pulumi:template: gcp-python
