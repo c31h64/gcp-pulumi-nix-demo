@@ -1,1 +1,3 @@
 encryptionsalt: v1:I9YIKAad0rc=:v1:8f2xfzyha6XZG9ni:XdK6H+R4X6y5dTpyjN0Q7DvLRA1SAA==
+config:
+  gcp:project: c31h64-threewhitetowers

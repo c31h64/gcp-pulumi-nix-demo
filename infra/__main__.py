@@ -11,7 +11,7 @@ repo = gcp.artifactregistry.Repository(
 )
 
 image_name = repo.name.apply(
-    lambda name: f"europe-west1-docker.pkg.dev/{gcp.config.project}/name/axum-demo-hw:latest"
+    lambda name: f"europe-west1-docker.pkg.dev/{gcp.config.project}/c31h64-twt-repo/axum-demo-hw:latest"
 )
 
 service = gcp.cloudrun.Service(
@@ -19,7 +19,7 @@ service = gcp.cloudrun.Service(
     location="europe-west1",
     template=gcp.cloudrun.ServiceTemplateArgs(
         spec=gcp.cloudrun.ServiceTemplateSpecArgs(
-            comtainers=[
+            containers=[
                 gcp.cloudrun.ServiceTemplateSpecContainerArgs(
                     image=image_name,
                 )
@@ -34,7 +34,7 @@ iam = gcp.cloudrun.IamMember(
     service = service.name,
     location = service.location,
     role = "roles/run.invoker",
-    memer = "allUsers"
+    member = "allUsers"
 )
 
 pulumi.export("url", service.statuses.apply(lambda s: s[0].url))

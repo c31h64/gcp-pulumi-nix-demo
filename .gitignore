@@ -1,2 +1,4 @@
 # All hidden files
 .*
+app/target/
+result*
