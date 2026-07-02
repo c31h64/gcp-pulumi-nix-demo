@@ -35,9 +35,12 @@
           export CLOUDSDK_CONFIG="$PWD/.gcloud"
           export PULUMI_HOME="$PWD/.pulumi"
           export PATH="$PWD/.pulumi/bin:$PATH"
-          export GOOGLE_APPLICATION_CREDENTIALS="$PWD/.gcloud/application_default_credentials.json"
+          #export GOOGLE_APPLICATION_CREDENTIALS="$PWD/.gcloud/application_default_credentials.json"
           export DOCKER_CONFIG="$PWD/.docker-config"
           mkdir -p .gcloud .pulumi .docker-config/
+
+          export GOOGLE_CLOUD_PROJECT=$(gcloud config get-value project)
+          export GOOGLE_CLOUD_LOCATION="global"
 
           export PULUMI_CONFIG_PASSPHRASE=$(cat ".pulumi-pass-plaintext.txt" | tr -d '\n')
           export PYO3_PYTHON="${pkgs.python3}/bin/python3"

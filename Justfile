@@ -14,6 +14,7 @@ bootstrap: auth
     gcloud services enable artifactregistry.googleapis.com
     gcloud services enable run.googleapis.com
     gcloud services enable cloudbuild.googleapis.com
+    gcloud services enable aiplatform.googleapis.com
     
     cd infra/
     pulumi login gs://c31h64-threewhitetowers-pulumi-state
@@ -33,4 +34,10 @@ push: build
     rm result.tar
     
 deploy:
-    cd infra && pulumi up
+    cd infra && GOOGLE_APPLICATION_CREDENTIALS="../.gcloud/application_default_credentials.json" pulumi up --yes
+
+preview:
+    cd infra && GOOGLE_APPLICATION_CREDENTIALS="../.gcloud/application_default_credentials.json" pulumi preview
+    
+destroy:
+    cd infra && GOOGLE_APPLICATION_CREDENTIALS="../.gcloud/application_default_credentials.json" pulumi destroy
