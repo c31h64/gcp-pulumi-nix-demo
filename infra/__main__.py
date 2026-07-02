@@ -20,6 +20,26 @@ image_name = repo.name.apply(
     lambda name: f"europe-west1-docker.pkg.dev/{gcp.config.project}/c31h64-twt-repo/axum-demo-hw:latest"
 )
 
+startup_probe = gcp.cloudrun.ServiceTemplateSpecContainerStartupProbeArgs(
+    http_get=gcp.cloudrun.ServiceTemplateSpecContainerStartupProbeHttpGetArgs(
+        path="/ready"    
+    ),
+    initial_delay_seconds=0,
+    timeout_seconds=1,
+    failure_threshold=3,
+    period_seconds=10
+)
+
+liveness_probe = gcp.cloudrun.ServiceTemplateSpecContainerLivenessProbeArgs(
+    http_get=gcp.cloudrun.ServiceTemplateSpecContainerLivenessProbeHttpGetArgs(
+        path="/health",
+    ),
+    initial_delay_seconds=0,
+    timeout_seconds=1,
+    failure_threshold=3,
+    period_seconds=10
+)
+
 service = gcp.cloudrun.Service(
     "c31h64-twt-axum-demo-hw-service",
     location="europe-west1",
@@ -28,6 +48,8 @@ service = gcp.cloudrun.Service(
             containers=[
                 gcp.cloudrun.ServiceTemplateSpecContainerArgs(
                     image=image_name,
+                    startup_probe=startup_probe,
+                    liveness_probe=liveness_probe
                 )
             ]
         )
