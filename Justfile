@@ -25,7 +25,11 @@ build:
 
 push: build
     gunzip -c ./result.tar.gz > result.tar
+
+    @gcloud auth print-access-token | crane auth login -u oauth2accesstoken --password-stdin europe-west1-docker.pkg.dev
+
     crane push ./result.tar europe-west1-docker.pkg.dev/c31h64-threewhitetowers/c31h64-twt-repo/axum-demo-hw:latest
+
     rm result.tar
     
 deploy:

@@ -2,15 +2,15 @@
 
 let 
   app = pkgs.rustPlatform.buildRustPackage {
-    pname = "c31h64-twt-axum-hw-cloud-run";
+    pname = "axum-demo-hw";
     version = "0.0.1";
     src = ./app;
     cargoLock.lockFile = ./app/Cargo.lock;
   };
 in
   pkgs.dockerTools.buildLayeredImage {
-    name = "c31h64-twt-axum-hw-cloud-run";
-    tag = "0.0.1";
+    name = "axum-demo-hw";
+    tag = "latest";
     contents = [ app ];
     config = {
       Entrypoint=["${app}/bin/app"];
