@@ -2,6 +2,7 @@
 name = "app"
 version = "0.0.1"
 edition = "2024"
+description = "A learning experiment exploring modern backend, infrastructure, and API patterns with Rust and cloud-native tools. Focused on hands-on experimentation and knowledge sharing."
 
 [dependencies]
 anyhow = "1.0.103"

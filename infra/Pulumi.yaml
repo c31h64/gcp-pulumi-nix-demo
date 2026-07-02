@@ -1,5 +1,5 @@
 name: infra
-description: A demo to study nix flakes, pulumi, nix-build and gcrane
+description: A hands-on learning experiment exploring backend, infrastructure, and API patterns with Rust, cloud-native tools, and generative AI (Google Gemini, Vertex AI).
 runtime:
   name: python
   options:

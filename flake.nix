@@ -1,5 +1,5 @@
 {
-  description = "A simple flake for testing";
+  description = "A hands-on learning experiment exploring modern backend, infrastructure, and API patterns with Rust, cloud-native tools, and generative AI (Google Gemini, Vertex AI).";
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
   };
