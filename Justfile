@@ -19,6 +19,9 @@ bootstrap: auth
     cd infra/
     pulumi login gs://c31h64-threewhitetowers-pulumi-state
     pulumi config set gcp:project c31h64-threewhitetowers
+    cd angularcli && npm install
+    cd frontend && npm install
+    
     @echo "Bootstrap complete."
 
 build:

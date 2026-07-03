@@ -29,6 +29,7 @@
              requests
              numpy 
           ]))
+          pkgs.nodejs_26
         ];
         
         shellHook = ''
@@ -44,6 +45,7 @@
 
           export PULUMI_CONFIG_PASSPHRASE=$(cat ".pulumi-pass-plaintext.txt" | tr -d '\n')
           export PYO3_PYTHON="${pkgs.python3}/bin/python3"
+          export PATH="$PWD/angularcli/node_modules/.bin:$PATH"
         '';
       };
     };
