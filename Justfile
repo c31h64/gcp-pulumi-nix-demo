@@ -15,6 +15,7 @@ bootstrap: auth
     gcloud services enable run.googleapis.com
     gcloud services enable cloudbuild.googleapis.com
     gcloud services enable aiplatform.googleapis.com
+    gcloud services enable compute.googleapis.com
     
     cd infra/
     pulumi login gs://c31h64-threewhitetowers-pulumi-state
@@ -26,6 +27,9 @@ bootstrap: auth
 
 build:
     nix build .#container -o result.tar.gz
+
+build-frontend:
+    cd frontend && ng build
 
 push: build
     gunzip -c ./result.tar.gz > result.tar
