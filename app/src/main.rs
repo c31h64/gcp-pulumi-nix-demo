@@ -1,3 +1,6 @@
+pub mod adjudicate;
+use crate::adjudicate::*;
+
 use anyhow::anyhow;
 use axum::{Router, http::StatusCode, routing::get};
 use std::env;

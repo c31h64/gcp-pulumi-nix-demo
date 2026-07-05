@@ -82,6 +82,8 @@ version = "0.0.1"
 dependencies = [
  "anyhow",
  "axum",
+ "serde",
+ "serde_json",
  "threatflux-vertex-rust-sdk",
  "tokio",
  "tower",
