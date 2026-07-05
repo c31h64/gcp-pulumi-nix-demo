@@ -4,12 +4,29 @@ use std::env;
 
 use threatflux_vertex_rust_sdk::{GenerateContentRequest, VertexClient, config::Config};
 
+const MODEL_NAME: &'static str = "gemini-3.5-flash";
+
+async fn create_vertex_client() -> anyhow::Result<VertexClient> {
+    let config = Config {
+        project_id: env::var("GOOGLE_CLOUD_PROJECT")?,
+        region: "global".to_string(), //env::var("GOOGLE_CLOUD_LOCATION")?,
+        ..Config::default()
+    };
+
+    Ok(VertexClient::new(config).await?)
+}
+
 async fn health_check() -> StatusCode {
     StatusCode::OK
 }
 
 async fn ready_check() -> StatusCode {
-    match generate_quote().await {
+    let client = create_vertex_client().await;
+    let request = GenerateContentRequest::new("Ping!");
+
+    let response = client.map(|c| async move { c.generate_content(MODEL_NAME, &request).await });
+
+    match response {
         Ok(_) => StatusCode::OK,
         Err(e) => {
             eprintln!("{}", e);
@@ -21,12 +38,7 @@ async fn ready_check() -> StatusCode {
 async fn generate_quote() -> anyhow::Result<String> {
     println!("Called generate_quote()");
 
-    let config = Config {
-        project_id: env::var("GOOGLE_CLOUD_PROJECT")?,
-        region: "global".to_string(), //env::var("GOOGLE_CLOUD_LOCATION")?,
-        ..Config::default()
-    };
-    let client = VertexClient::new(config).await?;
+    let client = create_vertex_client().await?;
 
     let request = GenerateContentRequest::new("Why is the sky blue?");
     let response = client
@@ -66,8 +78,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let listener = tokio::net::TcpListener::bind(addr).await?;
 
-    // Await the server here to keep it running.
-    // The '?' operator will propagate any startup/runtime errors.
     println!("Serving on port: {}", port);
 
     axum::serve(listener, app).await?;
