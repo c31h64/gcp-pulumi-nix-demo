@@ -25,6 +25,9 @@ bootstrap: auth
     
     @echo "Bootstrap complete."
 
+# invalidate-cdn-cache:
+    # gcloud compute url-maps invalidate-cdn-cache url-map-8396db4 --path="/*"
+
 build:
     nix build .#container -o result.tar.gz
 

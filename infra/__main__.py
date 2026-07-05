@@ -22,7 +22,7 @@ frontend_bucket_sync = psf.GoogleCloudFolder("frontend-bucket-sync",
 
 website_backend = gcp.compute.BackendBucket('website-backend',
     bucket_name=frontend_bucket.name,
-    enable_cdn=True)
+    enable_cdn=False)
 
 repo = gcp.artifactregistry.Repository(
     "c31h64-threewhitetowers-repo",
@@ -74,10 +74,10 @@ gcp_env = gcp.cloudrun.ServiceTemplateSpecContainerEnvArgs(
     value=gcp.config.project
 )
 
-gcl_env = gcp.cloudrun.ServiceTemplateSpecContainerEnvArgs(
-    name="GOOGLE_CLOUD_LOCATION",
-    value="global"
-)
+#gcl_env = gcp.cloudrun.ServiceTemplateSpecContainerEnvArgs(
+#    name="GOOGLE_CLOUD_LOCATION",
+#    value="global"
+#)
 
 service = gcp.cloudrun.Service(
     "c31h64-twt-axum-demo-hw-service",
@@ -88,7 +88,7 @@ service = gcp.cloudrun.Service(
             containers=[
                 gcp.cloudrun.ServiceTemplateSpecContainerArgs(
                     image=image_name,
-                    envs=[gcp_env, gcl_env],
+                    envs=[gcp_env],
                     startup_probe=startup_probe,
                     liveness_probe=liveness_probe
                 )
@@ -125,7 +125,7 @@ url_map = gcp.compute.URLMap("url-map",
     }]
 )
 
-global_ip = gcp.compute.GlobalAddress("twt-global-ip", name="twt-global-ip")
+global_ip = gcp.compute.GlobalAddress("twt-global-ip", name="c31h64-twt-global-ip")
 
 target_proxy = gcp.compute.TargetHttpProxy("http-proxy", url_map=url_map.id)
 
@@ -135,14 +135,13 @@ forwarding_rule = gcp.compute.GlobalForwardingRule("http-rule",
                                                    port_range="80")
 
 iam_backend = gcp.cloudrun.IamMember(
-    "c31h64-twt-public-access",
-    service = service.name,
-    location = service.location,
-    role = "roles/run.invoker",
-    member = "allUsers"
+     "c31h64-twt-public-access",
+     service = service.name,
+     location = service.location,
+     role = "roles/run.invoker",
+     member = "allUsers"
 )
 
-# Use this ONLY if you want the bucket contents to be publicly accessible
 iam_frontend = gcp.storage.BucketIAMMember("public-bucket-access",
     bucket=frontend_bucket.name,
     role="roles/storage.objectViewer",

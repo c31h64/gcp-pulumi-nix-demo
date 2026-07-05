@@ -23,7 +23,7 @@ async fn generate_quote() -> anyhow::Result<String> {
 
     let config = Config {
         project_id: env::var("GOOGLE_CLOUD_PROJECT")?,
-        region: env::var("GOOGLE_CLOUD_LOCATION")?,
+        region: "global".to_string(), //env::var("GOOGLE_CLOUD_LOCATION")?,
         ..Config::default()
     };
     let client = VertexClient::new(config).await?;
