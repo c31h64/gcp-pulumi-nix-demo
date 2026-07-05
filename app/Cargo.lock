@@ -84,6 +84,7 @@ dependencies = [
  "axum",
  "threatflux-vertex-rust-sdk",
  "tokio",
+ "tower",
 ]
 
 [[package]]

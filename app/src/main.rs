@@ -16,6 +16,7 @@ async fn create_vertex_client() -> anyhow::Result<VertexClient> {
     Ok(VertexClient::new(config).await?)
 }
 
+// TODO: This always returns OK so as not to waste tokens but the real world implementation would do the same as ready_check
 async fn health_check() -> StatusCode {
     StatusCode::OK
 }
@@ -61,11 +62,7 @@ async fn generate_handler() -> String {
     }
 }
 
-#[tokio::main]
-async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let port = env::var("PORT").unwrap_or_else(|_| "8080".to_string());
-    let addr = format!("0.0.0.0:{}", port);
-
+fn create_axum_app() -> Router {
     let app = Router::new();
 
     let app = app.route(
@@ -76,11 +73,47 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let app = app.route("/health", get(health_check));
     let app = app.route("/quote", get(generate_handler));
 
+    return app;
+}
+
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let port = env::var("PORT").unwrap_or_else(|_| "8080".to_string());
+    let addr = format!("0.0.0.0:{}", port);
+
     let listener = tokio::net::TcpListener::bind(addr).await?;
+
+    let app = create_axum_app();
 
     println!("Serving on port: {}", port);
 
     axum::serve(listener, app).await?;
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use axum::{
+        body::Body,
+        http::{Request, StatusCode},
+    };
+    use tower::ServiceExt;
+
+    #[tokio::test]
+    async fn test_quote_route() {
+        let app = create_axum_app();
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .uri("/quote")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::OK);
+    }
 }
