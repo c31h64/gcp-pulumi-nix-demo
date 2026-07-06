@@ -1,9 +1,12 @@
 pub mod adjudicate;
-use crate::adjudicate::*;
+pub mod logs;
+use adjudicate::*;
 
 use anyhow::anyhow;
 use axum::{Router, http::StatusCode, routing::get};
 use std::env;
+
+use logs::init_logs;
 
 use threatflux_vertex_rust_sdk::{GenerateContentRequest, VertexClient, config::Config};
 
@@ -33,14 +36,14 @@ async fn ready_check() -> StatusCode {
     match response {
         Ok(_) => StatusCode::OK,
         Err(e) => {
-            eprintln!("{}", e);
+            tracing::error!("{}", e);
             StatusCode::SERVICE_UNAVAILABLE
         }
     }
 }
 
 async fn generate_quote() -> anyhow::Result<String> {
-    println!("Called generate_quote()");
+    tracing::info!("Called generate_quote()");
 
     let client = create_vertex_client().await?;
 
@@ -81,6 +84,8 @@ fn create_axum_app() -> Router {
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    init_logs();
+
     let port = env::var("PORT").unwrap_or_else(|_| "8080".to_string());
     let addr = format!("0.0.0.0:{}", port);
 
@@ -88,7 +93,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let app = create_axum_app();
 
-    println!("Serving on port: {}", port);
+    tracing::info!("Serving on port: {}", port);
 
     axum::serve(listener, app).await?;
 
