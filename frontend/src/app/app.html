@@ -1,34 +1,62 @@
-<h1 class="centered"> Who's right or wrong? </h1>
+<div class="app">
+  <header class="header">
+    <div class="logo">⚖️</div>
+    <div>
+      <h1 class="title">Adjudicator</h1>
+      <p class="tagline">A lighthearted way to settle disputes.</p>
+    </div>
+  </header>
 
-<h2> Problem statement </h2>
+  <main class="card">
+    <h2>Problem statement</h2>
+    <textarea id="problemStatementWidget" class="problem">Roses are red, violets are blue.</textarea>
 
-<textarea id='problemStatementWidget'> Roses are red, violets are blue. </textarea>
+    <h2>Testimonies</h2>
+    <div class="sides">
+      <div class="side">
+        <label for="sideAWidget">Side A</label>
+        <textarea id="sideAWidget">Violet is more like purple.</textarea>
+      </div>
 
-<h2> Testimonies from the two sides </h2>
+      <div class="side">
+        <label for="sideBWidget">Side B</label>
+        <textarea id="sideBWidget">Violet is more like burgundy.</textarea>
+      </div>
+    </div>
 
-<div>
-  <textarea id='sideAWidget'>Violet is more like purple.</textarea>
-  <textarea id='sideBWidget'>Violet is more like burgundy.</textarea>
+    <div class="actions">
+      <button class="adjudicate-button" (click)="adjudicate()">Adjudicate</button>
+    </div>
+  </main>
+
+  @if (has_outcome()) {
+  <section class="outcome card">
+    <div class="columns">
+      <div class="column">
+        <h3>Arguments — Side A</h3>
+        <p class="muted">{{ arguments_side_a() }}</p>
+      </div>
+
+      <div class="column">
+        <h3>Arguments — Side B</h3>
+        <p class="muted">{{ arguments_side_b() }}</p>
+      </div>
+    </div>
+
+    <h3 class="winner">🏆 Side {{ winner_side() }} <span class="confidence">Confidence: {{ winner_probability()
+        }}</span></h3>
+
+    <div
+      style="margin-top: 20px; padding: 16px; background: linear-gradient(135deg, rgba(167, 243, 208, 0.1), rgba(106, 167, 255, 0.05)); border-radius: 12px; border-left: 4px solid var(--accent-2);">
+      <h3 style="margin-top: 0; color: #0b5d47;">✨ Compromise</h3>
+      <p style="font-size: 15px; line-height: 1.6; color: #0f172a;">{{ compromise_solution() }}</p>
+    </div>
+
+    <!-- <details style="margin-top: 16px; padding: 12px; background: rgba(107, 114, 128, 0.05); border-radius: 8px; cursor: pointer;"> -->
+    <!-- <summary style="color: var(--muted); font-weight: 600; user-select: none;">Server response</summary> -->
+    <!-- <p style="margin-top: 10px; color: var(--muted); font-size: 13px;">{{ message() }}</p> -->
+    <!-- </details> -->
+  </section>
+  }
+
 </div>
-
-<hr />
-
-<button class='adjudicate-button' (click)="adjudicate()"> Adjudicate </button>
-
-<hr />
-
-@if (has_outcome()) {
-<h3> Arguments side A </h3>
-<h4> {{ arguments_side_a() }} </h4>
-
-<h3> Arguments side B </h3>
-<h4> {{ arguments_side_b() }} </h4>
-
-<h3> Winner is side {{ winner_side() }} with confidence of {{ winner_probability() }} </h3>
-
-<h3> Compromise solution </h3>
-<h4> {{ compromise_solution() }} </h4>
-
-<h3> Response from server: </h3>
-<p> {{ message() }} </p>
-}
