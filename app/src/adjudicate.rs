@@ -1,5 +1,6 @@
 use anyhow::Context;
 use serde::{Deserialize, Serialize};
+use std::sync::Arc;
 use threatflux_vertex_rust_sdk::builders::{ContentRequestBuilder, FunctionBuilder};
 use threatflux_vertex_rust_sdk::{FunctionDeclaration, GenerateContentRequest, Tool, VertexClient};
 
@@ -29,15 +30,18 @@ fn adjudicate_tool() -> Tool {
     }
 }
 
-fn build_adjudicate_request(
+#[derive(Deserialize)]
+pub struct AdjudicateRequest {
     problem_text: String,
     side_a_text: String,
     side_b_text: String,
-) -> GenerateContentRequest {
+}
+
+fn build_adjudicate_gemini_request(request: AdjudicateRequest) -> GenerateContentRequest {
     let base_msg = "Adjudicate between two sides A and B and use the adjudicate function to provide your answer. Be as impartial as possible.";
     let prompt = format!(
         "{}\n Problem: {} \n\n\n Side A: {} \n\n\n Side B: {}",
-        base_msg, problem_text, side_a_text, side_b_text
+        base_msg, request.problem_text, request.side_a_text, request.side_b_text
     );
     let builder = ContentRequestBuilder::new(prompt)
         .temperature(0.0)
@@ -57,12 +61,10 @@ pub struct AdjudicateOutcome {
 }
 
 pub async fn adjudicate(
-    client: VertexClient,
-    problem_text: String,
-    side_a_text: String,
-    side_b_text: String,
+    client: Arc<VertexClient>,
+    request: AdjudicateRequest,
 ) -> anyhow::Result<AdjudicateOutcome> {
-    let request = build_adjudicate_request(problem_text, side_a_text, side_b_text);
+    let request = build_adjudicate_gemini_request(request);
     let response = client.generate_with_functions(MODEL_NAME, &request).await?;
 
     if let Some(function_call) = response.function_calls().iter().next() {
@@ -82,14 +84,13 @@ mod test {
 
     #[tokio::test]
     async fn test_adjudicate() {
-        let client = create_vertex_client().await.unwrap();
-        let outcome = adjudicate(
-            client,
-            "Violets are red. Roses are blue.".to_string(),
-            "Violets are more like purple.".to_string(),
-            "Violets are more like burgundy.".to_string(),
-        )
-        .await;
+        let client = Arc::new(create_vertex_client().await.unwrap());
+        let request = AdjudicateRequest {
+            problem_text: "Violets are red. Roses are blue.".to_string(),
+            side_a_text: "Violets are more like purple.".to_string(),
+            side_b_text: "Violets are more like burgundy.".to_string(),
+        };
+        let outcome = adjudicate(client, request).await;
 
         if let Err(e) = &outcome {
             eprintln!("{:?}", e);

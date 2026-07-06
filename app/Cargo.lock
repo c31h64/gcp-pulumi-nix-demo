@@ -92,6 +92,7 @@ version = "0.0.1"
 dependencies = [
  "anyhow",
  "axum",
+ "axum-anyhow",
  "serde",
  "serde_json",
  "threatflux-vertex-rust-sdk",
@@ -162,6 +163,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "31b698c5f9a010f6573133b09e0de5408834d0c82f8d7475a89fc1867a71cd90"
 dependencies = [
  "axum-core",
+ "axum-macros",
  "bytes",
  "form_urlencoded",
  "futures-util",
@@ -189,6 +191,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "axum-anyhow"
+version = "0.11.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b4dd6b39e59d759a88e49a7e2a5b44f3cb0a72720d74694a300301521c12f6b2"
+dependencies = [
+ "anyhow",
+ "axum",
+ "futures-util",
+ "serde",
+ "serde_json",
+ "tower",
+]
+
+[[package]]
 name = "axum-core"
 version = "0.5.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -205,6 +221,17 @@ dependencies = [
  "tower-layer",
  "tower-service",
  "tracing",
+]
+
+[[package]]
+name = "axum-macros"
+version = "0.5.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7aa268c23bfbbd2c4363b9cd302a4f504fb2a9dfe7e3451d66f35dd392e20aca"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
 ]
 
 [[package]]

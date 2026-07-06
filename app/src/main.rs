@@ -3,7 +3,13 @@ pub mod logs;
 use adjudicate::*;
 
 use anyhow::anyhow;
-use axum::{Router, extract::State, http::StatusCode, routing::get};
+use axum::{
+    Router, debug_handler,
+    extract::{Json, State},
+    http::StatusCode,
+    routing::{get, post},
+};
+use axum_anyhow::ApiResult;
 use std::env;
 use std::sync::Arc;
 
@@ -56,7 +62,18 @@ async fn ready_check(State(state): State<AppState>) -> StatusCode {
     }
 }
 
-// async fn adjudicate_handler()
+#[debug_handler]
+async fn adjudicate_handler(
+    State(state): State<AppState>,
+    Json(request): Json<AdjudicateRequest>,
+) -> ApiResult<Json<AdjudicateOutcome>> {
+    let outcome = adjudicate(state.client, request).await.map_err(|e| {
+        tracing::error!(error = ?e, "Adjudication failed");
+        axum_anyhow::ApiError::from(e)
+    })?;
+
+    Ok(Json(outcome))
+}
 
 async fn generate_quote(state: AppState) -> anyhow::Result<String> {
     tracing::info!("Called generate_quote()");
@@ -94,6 +111,7 @@ fn create_axum_app(state: AppState) -> Router {
     let app = app.route("/ready", get(ready_check));
     let app = app.route("/health", get(health_check));
     let app = app.route("/quote", get(generate_handler));
+    let app = app.route("/adjudicate", post(adjudicate_handler));
     let app = app.with_state(state);
 
     return app;
@@ -123,7 +141,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 mod tests {
     use super::*;
     use axum::{
-        body::Body,
+        body::{Body, to_bytes},
         http::{Request, StatusCode},
     };
     use tower::ServiceExt;
@@ -143,5 +161,39 @@ mod tests {
             .unwrap();
 
         assert_eq!(response.status(), StatusCode::OK);
+    }
+
+    #[tokio::test]
+    async fn test_adjudicate_endpoint() {
+        let state = AppState::try_new().await.unwrap();
+        let app = create_axum_app(state);
+
+        let body = serde_json::json!({
+            "problem_text": "Is this working?",
+            "side_a_text": "Yes",
+            "side_b_text": "No"
+        });
+
+        let request = axum::http::Request::builder()
+            .uri("/adjudicate")
+            .method("POST")
+            .header("Content-Type", "application/json")
+            .body(body.to_string())
+            .unwrap();
+
+        let response = app.oneshot(request).await.unwrap();
+
+        let status = response.status();
+
+        println!("Status: {:?}", status);
+
+        let (_parts, body) = response.into_parts();
+
+        let body_bytes = to_bytes(body, 1024 * 64).await.unwrap();
+        let body_str = String::from_utf8(body_bytes.to_vec()).unwrap();
+
+        println!("Body: {}", body_str);
+
+        assert_eq!(status, StatusCode::OK);
     }
 }
