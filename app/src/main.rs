@@ -3,8 +3,9 @@ pub mod logs;
 use adjudicate::*;
 
 use anyhow::anyhow;
-use axum::{Router, http::StatusCode, routing::get};
+use axum::{Router, extract::State, http::StatusCode, routing::get};
 use std::env;
+use std::sync::Arc;
 
 use logs::init_logs;
 
@@ -22,16 +23,29 @@ async fn create_vertex_client() -> anyhow::Result<VertexClient> {
     Ok(VertexClient::new(config).await?)
 }
 
+#[derive(Clone)]
+struct AppState {
+    client: Arc<VertexClient>,
+}
+
+impl AppState {
+    async fn try_new() -> anyhow::Result<AppState> {
+        create_vertex_client().await.map(|client| AppState {
+            client: Arc::new(client),
+        })
+    }
+}
+
 // TODO: This always returns OK so as not to waste tokens but the real world implementation would do the same as ready_check
 async fn health_check() -> StatusCode {
     StatusCode::OK
 }
 
-async fn ready_check() -> StatusCode {
-    let client = create_vertex_client().await;
+async fn ready_check(State(state): State<AppState>) -> StatusCode {
+    let client = state.client;
     let request = GenerateContentRequest::new("Ping!");
 
-    let response = client.map(|c| async move { c.generate_content(MODEL_NAME, &request).await });
+    let response = client.generate_content(MODEL_NAME, &request).await;
 
     match response {
         Ok(_) => StatusCode::OK,
@@ -42,10 +56,12 @@ async fn ready_check() -> StatusCode {
     }
 }
 
-async fn generate_quote() -> anyhow::Result<String> {
+// async fn adjudicate_handler()
+
+async fn generate_quote(state: AppState) -> anyhow::Result<String> {
     tracing::info!("Called generate_quote()");
 
-    let client = create_vertex_client().await?;
+    let client = state.client;
 
     let request = GenerateContentRequest::new("Why is the sky blue?");
     let response = client
@@ -61,14 +77,14 @@ async fn generate_quote() -> anyhow::Result<String> {
     ))
 }
 
-async fn generate_handler() -> String {
-    match generate_quote().await {
+async fn generate_handler(State(state): State<AppState>) -> String {
+    match generate_quote(state).await {
         Ok(t) => dbg!(t),
         Err(t) => dbg!(t.to_string()),
     }
 }
 
-fn create_axum_app() -> Router {
+fn create_axum_app(state: AppState) -> Router {
     let app = Router::new();
 
     let app = app.route(
@@ -78,6 +94,7 @@ fn create_axum_app() -> Router {
     let app = app.route("/ready", get(ready_check));
     let app = app.route("/health", get(health_check));
     let app = app.route("/quote", get(generate_handler));
+    let app = app.with_state(state);
 
     return app;
 }
@@ -91,7 +108,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let listener = tokio::net::TcpListener::bind(addr).await?;
 
-    let app = create_axum_app();
+    let state = AppState::try_new().await?;
+
+    let app = create_axum_app(state);
 
     tracing::info!("Serving on port: {}", port);
 
@@ -111,7 +130,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_quote_route() {
-        let app = create_axum_app();
+        let state = AppState::try_new().await.unwrap();
+        let app = create_axum_app(state);
         let response = app
             .oneshot(
                 Request::builder()
