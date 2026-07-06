@@ -40,14 +40,15 @@ image_name = repo.name.apply(
     lambda name: f"{LOCATION}-docker.pkg.dev/{gcp.config.project}/c31h64-twt-repo/axum-demo-hw:latest"
 )
 
+# IAM has eventual consistency!
 startup_probe = gcp.cloudrun.ServiceTemplateSpecContainerStartupProbeArgs(
     http_get=gcp.cloudrun.ServiceTemplateSpecContainerStartupProbeHttpGetArgs(
         path="/ready"    
     ),
-    initial_delay_seconds=1,
-    timeout_seconds=15,
-    failure_threshold=3,
-    period_seconds=15
+    initial_delay_seconds=15,
+    timeout_seconds=30,
+    failure_threshold=10,
+    period_seconds=30
 )
 
 liveness_probe = gcp.cloudrun.ServiceTemplateSpecContainerLivenessProbeArgs(
@@ -115,7 +116,7 @@ url_map = gcp.compute.URLMap("url-map",
         "name": "routing-matcher",
         "default_service": website_backend.id,
         "path_rules": [{
-            "paths": ["/quote"],
+            "paths": ["/quote", "/adjudicate"],
             "service": api_backend.id, # API path goes to Cloud Run
         }],
     }],

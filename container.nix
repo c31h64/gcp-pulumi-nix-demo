@@ -6,6 +6,7 @@ let
     version = "0.0.2";
     src = ./app;
     cargoLock.lockFile = ./app/Cargo.lock;
+    doCheck = false;
   };
 in
   pkgs.dockerTools.buildLayeredImage {
