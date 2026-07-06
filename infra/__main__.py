@@ -149,5 +149,14 @@ iam_frontend = gcp.storage.BucketIAMMember("public-bucket-access",
     member="allUsers"
 )
 
+invalidate_cdn_cache = command.local.Command(
+    "invalidate-cdn-cache",
+    create=url_map.name.apply(
+        lambda name: f"gcloud compute url-maps invalidate-cdn-cache {name} --path '/*'"
+    ),
+    triggers=[frontend_bucket_sync.urn],
+    opts=pulumi.ResourceOptions(depends_on=[frontend_bucket_sync, url_map])
+)
+
 pulumi.export("url", service.statuses.apply(lambda s: s[0].url))
 pulumi.export("load_balancer_ip", global_ip.address)
