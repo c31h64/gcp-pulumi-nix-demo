@@ -25,7 +25,13 @@
     </div>
 
     <div class="actions">
-      <button class="adjudicate-button" (click)="adjudicate()">Adjudicate</button>
+      <button class="adjudicate-button" (click)="adjudicate()" [disabled]="is_loading()">
+        @if (is_loading()) {
+          <span class="spinner"></span> Adjudicating...
+        } @else {
+          Adjudicate
+        }
+      </button>
     </div>
   </main>
 

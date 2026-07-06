@@ -13,6 +13,7 @@ export class App {
   message = signal<string>('');
 
   has_outcome = signal<boolean>(false);
+  is_loading = signal<boolean>(false);
   arguments_side_a = signal<string>('');
   arguments_side_b = signal<string>('');
   winner_side = signal<string>('');
@@ -22,6 +23,7 @@ export class App {
   private http = inject(HttpClient);
 
   adjudicate() {
+    this.is_loading.set(true);
     this.http.post<AdjudicateOutcome>('/adjudicate', {
       'problem_text':  document.getElementById("problemStatementWidget")?.textContent,
       'side_a_text': document.getElementById("sideAWidget")?.textContent,
@@ -35,10 +37,12 @@ export class App {
         this.winner_probability.set(res.winner_probability);
         this.compromise_solution.set(res.compromise_solution);
         this.message.set(JSON.stringify(res, null, 2));
+        this.is_loading.set(false);
       },
       error: (err) => {
         console.error(err);
         this.message.set('Error calling the adjudicate API');
+        this.is_loading.set(false);
       }
     });
   }
