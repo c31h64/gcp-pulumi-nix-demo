@@ -89,6 +89,7 @@ service = gcp.cloudrunv2.Service(
     location=LOCATION,
     # ingress="INGRESS_TRAFFIC_INTERNAL_LOAD_BALANCER",
     ingress="INGRESS_TRAFFIC_ALL",
+    deletion_protection=False,
     template=gcp.cloudrunv2.ServiceTemplateArgs(
         service_account=gemini_sa.email,
         containers=[
