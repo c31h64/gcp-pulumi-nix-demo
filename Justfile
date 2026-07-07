@@ -57,3 +57,7 @@ preview:
     
 destroy:
     cd infra && GOOGLE_APPLICATION_CREDENTIALS="../.gcloud/application_default_credentials.json" pulumi destroy
+
+valkey-run:
+    # docker run --rm -it --name valkey-search --net=host valkey/valkey-bundle:latest valkey-server --loadmodule /usr/lib/valkey/libsearch.so --save "" --appendonly no
+    docker run --rm -it --name valkey-search --net=host valkey/valkey-bundle:latest valkey-server --save "" --appendonly no

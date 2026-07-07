@@ -11,7 +11,7 @@
     in
     {
       packages.${system}.container = pkgs.callPackage ./container.nix { };
-  
+
       devShells.${system}.default = pkgs.mkShell {
         packages = [
           pkgs.rustc
@@ -30,6 +30,7 @@
              numpy 
           ]))
           pkgs.nodejs_26
+          pkgs.valkey
         ];
         
         shellHook = ''
