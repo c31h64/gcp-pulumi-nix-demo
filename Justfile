@@ -25,8 +25,14 @@ bootstrap: auth
     
     @echo "Bootstrap complete."
 
-# invalidate-cdn-cache:
-# gcloud compute url-maps invalidate-cdn-cache url-map-8396db4 --path="/*"
+invalidate-cdn-cache:
+    #!/usr/bin/env fish
+    set -l url_maps (gcloud compute url-maps list --format="value(name)" | grep url-map-)
+    
+    for map in $url_maps
+        echo "Invalidating $map..."
+        gcloud compute url-maps invalidate-cdn-cache "$map" --path="/*"
+    end
 
 build:
     nix build .#container -o result.tar.gz
