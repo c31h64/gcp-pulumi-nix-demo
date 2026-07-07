@@ -75,26 +75,20 @@ gcp_env = gcp.cloudrun.ServiceTemplateSpecContainerEnvArgs(
     value=gcp.config.project
 )
 
-#gcl_env = gcp.cloudrun.ServiceTemplateSpecContainerEnvArgs(
-#    name="GOOGLE_CLOUD_LOCATION",
-#    value="global"
-#)
-
-service = gcp.cloudrun.Service(
+service = gcp.cloudrunv2.Service(
     "c31h64-twt-axum-demo-hw-service",
     location=LOCATION,
-    template=gcp.cloudrun.ServiceTemplateArgs(
-        spec=gcp.cloudrun.ServiceTemplateSpecArgs(
-            service_account_name=gemini_sa.email,
-            containers=[
-                gcp.cloudrun.ServiceTemplateSpecContainerArgs(
-                    image=image_name,
-                    envs=[gcp_env],
-                    startup_probe=startup_probe,
-                    liveness_probe=liveness_probe
-                )
-            ]
-        )
+    ingress="INGRESS_TRAFFIC_INTERNAL_LOAD_BALANCER",
+    template=gcp.cloudrunv2.ServiceTemplateArgs(
+        service_account=gemini_sa.email,
+        containers=[
+            gcp.cloudrunv2.ServiceTemplateContainerArgs(
+                image=image_name,
+                envs=[gcp_env],
+                startup_probe=startup_probe,
+                liveness_probe=liveness_probe,
+            )
+        ],
     ),
     opts=pulumi.ResourceOptions(depends_on=[frontend_bucket_sync, push_image, gemini_sa])
 )
@@ -135,13 +129,13 @@ forwarding_rule = gcp.compute.GlobalForwardingRule("http-rule",
                                                    ip_address=global_ip.address,
                                                    port_range="80")
 
-iam_backend = gcp.cloudrun.IamMember(
-     "c31h64-twt-public-access",
-     service = service.name,
-     location = service.location,
-     role = "roles/run.invoker",
-     member = "allUsers"
-)
+# iam_backend = gcp.cloudrun.IamMember(
+#      "c31h64-twt-public-access",
+#      service = service.name,
+#      location = service.location,
+#      role = "roles/run.invoker",
+#      member = "allUsers"
+# )
 
 iam_frontend = gcp.storage.BucketIAMMember("public-bucket-access",
     bucket=frontend_bucket.name,
@@ -158,5 +152,5 @@ invalidate_cdn_cache = command.local.Command(
     opts=pulumi.ResourceOptions(depends_on=[frontend_bucket_sync, url_map])
 )
 
-pulumi.export("url", service.statuses.apply(lambda s: s[0].url))
+pulumi.export("url", service.uri)
 pulumi.export("load_balancer_ip", global_ip.address)
