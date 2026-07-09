@@ -31,6 +31,8 @@
           ]))
           pkgs.nodejs_26
           pkgs.valkey
+          pkgs.openssl    # Required by ort-sys / libssl
+          pkgs.pkg-config # Required to find the openssl library
         ];
         
         shellHook = ''
@@ -39,7 +41,9 @@
           export PATH="$PWD/.pulumi/bin:$PATH"
           #export GOOGLE_APPLICATION_CREDENTIALS="$PWD/.gcloud/application_default_credentials.json"
           export DOCKER_CONFIG="$PWD/.docker-config"
-          mkdir -p .gcloud .pulumi .docker-config/
+          export FASTEMBED_CACHE_DIR="$PWD/.fastembed_cache"
+          
+          mkdir -p .gcloud .pulumi .docker-config/ .fastembed_cache/
 
           export GOOGLE_CLOUD_PROJECT=$(gcloud config get-value project)
           export GOOGLE_CLOUD_LOCATION="global"

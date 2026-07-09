@@ -1,5 +1,5 @@
 use crate::MODEL_NAME;
-use anyhow::anyhow;
+use anyhow::{Context, anyhow};
 use ferriskey::{Client, ClientBuilder};
 use std::{env, sync::Arc};
 use threatflux_vertex_rust_sdk::{GenerateContentRequest, GenerateContentResponse, VertexClient};
@@ -26,6 +26,20 @@ impl Cache {
             valkey_client: Arc::new(valkey_client),
             vertexai_client: vertexai_client,
         });
+    }
+
+    pub async fn create_hnsw_index(&self) -> anyhow::Result<()> {
+        // FT.CREATE idx:cache ON HASH PREFIX 1 request: SCHEMA prompt_vec VECTOR HNSW 16 TYPE FLOAT32 DIM 1536 DISTANCE_METRIC COSINE
+        self.valkey_client
+            .cmd("FT.CREATE")
+            .arg("idx:cache")
+            .arg("ON HASH PREFIX 1 request:")
+            .arg("SCHEMA prompt_vec")
+            .arg("VECTOR HNSW 16 TYPE FLOAT32 DIM 1536")
+            .arg("DISTANCE_METRIC COSINE")
+            .execute()
+            .await
+            .context("")
     }
 
     /// Fetch with exact hash matching.

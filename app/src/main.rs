@@ -1,9 +1,11 @@
 pub mod adjudicate;
 pub mod cache;
 pub mod logs;
+pub mod vecembed;
 
 use adjudicate::*;
 use cache::*;
+use vecembed::*;
 
 use anyhow::anyhow;
 use axum::{
@@ -36,15 +38,18 @@ async fn create_vertex_client() -> anyhow::Result<VertexClient> {
 struct AppState {
     client: Arc<VertexClient>,
     cache: Cache,
+    embed: VecEmbed,
 }
 
 impl AppState {
     async fn try_new() -> anyhow::Result<AppState> {
         let client = Arc::new(create_vertex_client().await?);
         let cache = Cache::try_new(client.clone()).await?;
+        let embed = VecEmbed::try_new().await?;
         Ok(AppState {
             client: client,
             cache: cache,
+            embed: embed,
         })
     }
 }

@@ -8,6 +8,7 @@ description = "A learning experiment exploring modern backend, infrastructure, a
 anyhow = "1.0.103"
 axum =  { version = "0.8.9", features=["macros"] }
 axum-anyhow = "0.11.5"
+fastembed = "5.17.2"
 ferriskey = "0.15.0"
 # bincode-next = { version = "3.1.1", features = ["serde"] }
 serde = {"version" = "1.0.228", features=["derive"] }
