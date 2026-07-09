@@ -1,6 +1,9 @@
 pub mod adjudicate;
+pub mod cache;
 pub mod logs;
+
 use adjudicate::*;
+use cache::*;
 
 use anyhow::anyhow;
 use axum::{
@@ -32,12 +35,16 @@ async fn create_vertex_client() -> anyhow::Result<VertexClient> {
 #[derive(Clone)]
 struct AppState {
     client: Arc<VertexClient>,
+    cache: Cache,
 }
 
 impl AppState {
     async fn try_new() -> anyhow::Result<AppState> {
-        create_vertex_client().await.map(|client| AppState {
-            client: Arc::new(client),
+        let client = Arc::new(create_vertex_client().await?);
+        let cache = Cache::try_new(client.clone()).await?;
+        Ok(AppState {
+            client: client,
+            cache: cache,
         })
     }
 }
@@ -67,7 +74,7 @@ async fn adjudicate_handler(
     State(state): State<AppState>,
     Json(request): Json<AdjudicateRequest>,
 ) -> ApiResult<Json<AdjudicateOutcome>> {
-    let outcome = adjudicate(state.client, request).await.map_err(|e| {
+    let outcome = adjudicate(state.cache, request).await.map_err(|e| {
         tracing::error!(error = ?e, "Adjudication failed");
         axum_anyhow::ApiError::from(e)
     })?;
@@ -78,12 +85,10 @@ async fn adjudicate_handler(
 async fn generate_quote(state: AppState) -> anyhow::Result<String> {
     tracing::info!("Called generate_quote()");
 
-    let client = state.client;
+    let cache = state.cache;
 
     let request = GenerateContentRequest::new("Why is the sky blue?");
-    let response = client
-        .generate_content("gemini-3.5-flash", &request)
-        .await?;
+    let response = cache.fetch_exact(request).await?;
 
     if let Some(text) = response.text() {
         return Ok(text);

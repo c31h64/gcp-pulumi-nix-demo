@@ -1,10 +1,9 @@
 use anyhow::Context;
 use serde::{Deserialize, Serialize};
-use std::sync::Arc;
 use threatflux_vertex_rust_sdk::builders::{ContentRequestBuilder, FunctionBuilder};
-use threatflux_vertex_rust_sdk::{FunctionDeclaration, GenerateContentRequest, Tool, VertexClient};
+use threatflux_vertex_rust_sdk::{FunctionDeclaration, GenerateContentRequest, Tool};
 
-use crate::MODEL_NAME;
+use crate::cache::Cache;
 
 // Build the function using the ergonomic FunctionBuilder
 fn create_adjudicate_fn() -> FunctionDeclaration {
@@ -30,7 +29,7 @@ fn adjudicate_tool() -> Tool {
     }
 }
 
-#[derive(Deserialize)]
+#[derive(Serialize, Deserialize)]
 pub struct AdjudicateRequest {
     problem_text: String,
     side_a_text: String,
@@ -61,11 +60,12 @@ pub struct AdjudicateOutcome {
 }
 
 pub async fn adjudicate(
-    client: Arc<VertexClient>,
+    cache: Cache,
     request: AdjudicateRequest,
 ) -> anyhow::Result<AdjudicateOutcome> {
     let request = build_adjudicate_gemini_request(request);
-    let response = client.generate_with_functions(MODEL_NAME, &request).await?;
+    // let response = client.generate_with_functions(MODEL_NAME, &request).await?;
+    let response = cache.fetch_exact(request).await?;
 
     if let Some(function_call) = response.function_calls().iter().next() {
         return serde_json::from_value(serde_json::to_value(&function_call.args)?)
@@ -81,16 +81,18 @@ pub async fn adjudicate(
 mod test {
     use super::*;
     use crate::create_vertex_client;
+    use std::sync::Arc;
 
     #[tokio::test]
     async fn test_adjudicate() {
         let client = Arc::new(create_vertex_client().await.unwrap());
+        let cache = Cache::try_new(client).await.unwrap();
         let request = AdjudicateRequest {
             problem_text: "Violets are red. Roses are blue.".to_string(),
             side_a_text: "Violets are more like purple.".to_string(),
             side_b_text: "Violets are more like burgundy.".to_string(),
         };
-        let outcome = adjudicate(client, request).await;
+        let outcome = adjudicate(cache, request).await;
 
         if let Err(e) = &outcome {
             eprintln!("{:?}", e);
