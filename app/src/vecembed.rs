@@ -1,4 +1,3 @@
-use anyhow::Result;
 use anyhow::anyhow;
 use fastembed::{EmbeddingModel, InitOptions, TextEmbedding};
 use std::sync::{Arc, Mutex};
@@ -12,7 +11,7 @@ pub struct VecEmbed {
 impl VecEmbed {
     pub async fn try_new() -> anyhow::Result<Self> {
         let path = env::var("FASTEMBED_CACHE_DIR")?;
-        let path = PathBuf::try_from(path)?;
+        let path = PathBuf::from(path);
 
         tracing::info!("Initializing the fastembed models.");
 
@@ -23,16 +22,16 @@ impl VecEmbed {
         )?;
         let model = Arc::new(Mutex::new(model));
 
-        return Ok(VecEmbed { model: model });
+        Ok(VecEmbed { model })
     }
 
     pub async fn embed_text(&self, text: &str) -> anyhow::Result<Vec<f32>> {
         let mut model = self.model.lock().map_err(|_| anyhow!("Mutex poisoning!"))?;
-        let emb = model.embed(&[text], None)?;
+        let emb = model.embed([text], None)?;
 
-        emb.get(0)
-            .ok_or(anyhow!("Failed to generate even a single embedding!"))
+        emb.first()
             .cloned()
+            .ok_or_else(|| anyhow!("Failed to generate even a single embedding!"))
     }
 }
 

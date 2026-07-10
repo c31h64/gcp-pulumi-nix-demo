@@ -64,10 +64,24 @@ pub async fn adjudicate(
     request: AdjudicateRequest,
 ) -> anyhow::Result<AdjudicateOutcome> {
     let request = build_adjudicate_gemini_request(request);
-    // let response = client.generate_with_functions(MODEL_NAME, &request).await?;
-    let response = cache.fetch_exact(request).await?;
+    let prompt = request
+        .contents
+        .first()
+        .and_then(|content| {
+            content.parts.iter().find_map(|part| {
+                if let threatflux_vertex_rust_sdk::types::Part::Text { text } = part {
+                    Some(text.as_str())
+                } else {
+                    None
+                }
+            })
+        })
+        .unwrap_or_default();
+    let response = cache
+        .fetch_approximate_with_threshold(request.clone(), prompt, 0.35)
+        .await?;
 
-    if let Some(function_call) = response.function_calls().iter().next() {
+    if let Some(function_call) = response.function_calls().first() {
         return serde_json::from_value(serde_json::to_value(&function_call.args)?)
             .context("Deserialize failure!");
     }
@@ -102,6 +116,6 @@ mod test {
             println!("{:?}", adj);
         }
 
-        assert_eq!(outcome.is_ok(), true);
+        assert!(outcome.is_ok());
     }
 }

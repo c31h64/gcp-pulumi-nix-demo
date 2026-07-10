@@ -12,7 +12,7 @@ pub fn init_logs() {
 
     let subscriber = Registry::default().with(layer);
 
-    tracing::subscriber::set_global_default(subscriber).expect("Failed to set global subscriber");
+    let _ = tracing::subscriber::set_global_default(subscriber);
 
     tracing::info!("Application starting");
 }

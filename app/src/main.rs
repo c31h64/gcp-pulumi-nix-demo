@@ -5,7 +5,6 @@ pub mod vecembed;
 
 use adjudicate::*;
 use cache::*;
-use vecembed::*;
 
 use anyhow::anyhow;
 use axum::{
@@ -22,7 +21,7 @@ use logs::init_logs;
 
 use threatflux_vertex_rust_sdk::{GenerateContentRequest, VertexClient, config::Config};
 
-const MODEL_NAME: &'static str = "gemini-3.5-flash";
+const MODEL_NAME: &str = "gemini-3.5-flash";
 
 async fn create_vertex_client() -> anyhow::Result<VertexClient> {
     let config = Config {
@@ -38,19 +37,13 @@ async fn create_vertex_client() -> anyhow::Result<VertexClient> {
 struct AppState {
     client: Arc<VertexClient>,
     cache: Cache,
-    embed: VecEmbed,
 }
 
 impl AppState {
     async fn try_new() -> anyhow::Result<AppState> {
         let client = Arc::new(create_vertex_client().await?);
         let cache = Cache::try_new(client.clone()).await?;
-        let embed = VecEmbed::try_new().await?;
-        Ok(AppState {
-            client: client,
-            cache: cache,
-            embed: embed,
-        })
+        Ok(AppState { client, cache })
     }
 }
 
@@ -122,9 +115,7 @@ fn create_axum_app(state: AppState) -> Router {
     let app = app.route("/health", get(health_check));
     let app = app.route("/quote", get(generate_handler));
     let app = app.route("/adjudicate", post(adjudicate_handler));
-    let app = app.with_state(state);
-
-    return app;
+    app.with_state(state)
 }
 
 #[tokio::main]
