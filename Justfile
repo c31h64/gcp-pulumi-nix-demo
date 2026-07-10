@@ -37,6 +37,35 @@ invalidate-cdn-cache:
 build:
     nix build .#container -o result.tar.gz
 
+container-smoke-test: build
+    gunzip -c ./result.tar.gz > result.tar
+    docker load < result.tar
+    docker rm -f axum-demo-hw-smoke >/dev/null 2>&1 || true
+    docker run --rm --network host --name axum-demo-hw-smoke --entrypoint /bin/sh axum-demo-hw:latest -lc 'test -d /var/cache/fastembed && find /var/cache/fastembed -maxdepth 3 -type f | head -5 && find /nix/store -path "*/lib/libonnxruntime.so*" | head -5'
+    rm -f result.tar
+
+run-container: build
+    docker rm -f axum-demo-hw-local >/dev/null 2>&1 || true
+    docker run -d --network host --name axum-demo-hw-local \
+        -e PORT=8080 \
+        -e VALKEY_HOST=127.0.0.1 \
+        -e VALKEY_PORT=6379 \
+        -e GOOGLE_CLOUD_PROJECT="$(gcloud config get-value project 2>/dev/null || echo c31h64-threewhitetowers)" \
+        -e GOOGLE_APPLICATION_CREDENTIALS=/gcloud/application_default_credentials.json \
+        -v "$PWD/.gcloud:/gcloud:ro" \
+        axum-demo-hw:latest
+    @echo "Waiting for container to become ready..."
+    @curl --retry 20 --retry-connrefused --retry-delay 1 --retry-all-errors -sS http://127.0.0.1:8080/health || true
+    @echo "--- /health ---"
+    @curl -sS -i http://127.0.0.1:8080/health || true
+    @echo "--- /ready ---"
+    @curl -sS -i http://127.0.0.1:8080/ready || true
+    @echo "--- container logs ---"
+    @docker logs axum-demo-hw-local 2>&1 | tail -50 || true
+
+stop-container:
+    docker rm -f axum-demo-hw-local >/dev/null 2>&1 || true
+
 build-frontend:
     cd frontend && ng build
 
