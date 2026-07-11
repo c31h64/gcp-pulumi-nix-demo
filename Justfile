@@ -16,7 +16,10 @@ bootstrap: auth
     gcloud services enable cloudbuild.googleapis.com
     gcloud services enable aiplatform.googleapis.com
     gcloud services enable compute.googleapis.com
-    
+    gcloud services enable vpcaccess.googleapis.com
+    gcloud services enable networkconnectivity.googleapis.com
+    gcloud services enable memorystore.googleapis.com
+        
     cd infra/
     pulumi login gs://c31h64-threewhitetowers-pulumi-state
     pulumi config set gcp:project c31h64-threewhitetowers

@@ -1,5 +1,3 @@
-"""A Google Cloud Python Pulumi program"""
-
 import pulumi
 import pulumi_gcp as gcp
 import pulumi_command as command
@@ -7,6 +5,59 @@ import pulumi_synced_folder as psf
 
 EUROPE_WEST1 = "europe-west1"
 LOCATION = EUROPE_WEST1
+
+app_vpc = gcp.compute.Network(
+    "twt-app-vpc",
+    auto_create_subnetworks=False,
+    description="Private VPC for the app and Memorystore",
+)
+
+app_subnet = gcp.compute.Subnetwork(
+    "twt-app-subnet",
+    ip_cidr_range="10.1.0.0/24",
+    region=LOCATION,
+    network=app_vpc.id,
+    private_ip_google_access=True,
+)
+
+valkey_service_connection_policy = gcp.networkconnectivity.ServiceConnectionPolicy(
+    "twt-valkey-service-connection-policy",
+    name="c31h64-twt-valkey-policy",
+    location=LOCATION,
+    network=app_vpc.id,
+    service_class="gcp-memorystore",
+    psc_config={
+        "subnetworks": [app_subnet.id],
+    },
+)
+
+valkey_instance = gcp.memorystore.Instance(
+    "twt-valkey-instance",
+    instance_id="c31h64-twt-valkey",
+    shard_count=1,
+    desired_auto_created_endpoints=[
+        {
+            "network": app_vpc.id,
+            "project_id": gcp.config.project,
+        }
+    ],
+    location=LOCATION,
+    node_type="SHARED_CORE_NANO",
+    transit_encryption_mode="TRANSIT_ENCRYPTION_DISABLED",
+    authorization_mode="AUTH_DISABLED",
+    engine_version="VALKEY_7_2",
+    deletion_protection_enabled=False,
+    mode="CLUSTER",
+    opts=pulumi.ResourceOptions(depends_on=[valkey_service_connection_policy]),
+)
+
+# vpc_connector = gcp.vpcaccess.Connector(
+#     "twt-cloudrun-vpc-connector",
+#     name="twt-cloudrun-connector",
+#     region=LOCATION,
+#     network=app_vpc.name,
+#     ip_cidr_range="10.8.0.0/28",
+# )
 
 frontend_bucket = gcp.storage.Bucket(
     "frontend-bucket",
@@ -47,8 +98,8 @@ image_name = repo.name.apply(
 )
 
 # IAM has eventual consistency!
-startup_probe = gcp.cloudrun.ServiceTemplateSpecContainerStartupProbeArgs(
-    http_get=gcp.cloudrun.ServiceTemplateSpecContainerStartupProbeHttpGetArgs(
+startup_probe = gcp.cloudrunv2.ServiceTemplateContainerStartupProbeArgs(
+    http_get=gcp.cloudrunv2.ServiceTemplateContainerStartupProbeHttpGetArgs(
         path="/ready"
     ),
     initial_delay_seconds=15,
@@ -57,8 +108,8 @@ startup_probe = gcp.cloudrun.ServiceTemplateSpecContainerStartupProbeArgs(
     period_seconds=30,
 )
 
-liveness_probe = gcp.cloudrun.ServiceTemplateSpecContainerLivenessProbeArgs(
-    http_get=gcp.cloudrun.ServiceTemplateSpecContainerLivenessProbeHttpGetArgs(
+liveness_probe = gcp.cloudrunv2.ServiceTemplateContainerLivenessProbeArgs(
+    http_get=gcp.cloudrunv2.ServiceTemplateContainerLivenessProbeHttpGetArgs(
         path="/health",
     ),
     initial_delay_seconds=5,
@@ -80,8 +131,33 @@ sa_iam = gcp.projects.IAMMember(
     member=gemini_sa.email.apply(lambda email: f"serviceAccount:{email}"),
 )
 
-gcp_env = gcp.cloudrun.ServiceTemplateSpecContainerEnvArgs(
+# vpc_access_iam = gcp.projects.IAMMember(
+#     "cloudrun-vpc-access-iam",
+#     project=gcp.config.project,
+#     role="roles/vpcaccess.user",
+#     member=gemini_sa.email.apply(lambda email: f"serviceAccount:{email}"),
+# )
+
+gcp_env = gcp.cloudrunv2.ServiceTemplateContainerEnvArgs(
     name="GOOGLE_CLOUD_PROJECT", value=gcp.config.project
+)
+
+valkey_host = valkey_instance.endpoints.apply(
+    lambda endpoints: (
+        endpoints[0].connections[0].psc_auto_connection.ip_address
+        if endpoints
+        and endpoints[0].connections
+        and endpoints[0].connections[0].psc_auto_connection
+        else ""
+    )
+)
+
+valkey_host_env = gcp.cloudrunv2.ServiceTemplateContainerEnvArgs(
+    name="VALKEY_HOST", value=valkey_host
+)
+
+valkey_port_env = gcp.cloudrunv2.ServiceTemplateContainerEnvArgs(
+    name="VALKEY_PORT", value="6379"
 )
 
 service = gcp.cloudrunv2.Service(
@@ -92,17 +168,41 @@ service = gcp.cloudrunv2.Service(
     deletion_protection=False,
     template=gcp.cloudrunv2.ServiceTemplateArgs(
         service_account=gemini_sa.email,
+        # vpc_access=gcp.cloudrunv2.ServiceTemplateVpcAccessArgs(
+        #     connector=vpc_connector.name.apply(
+        #         lambda name: (
+        #             f"projects/{gcp.config.project}/locations/{LOCATION}/connectors/{name}"
+        #         )
+        #     ),
+        #     egress="ALL_TRAFFIC",
+        # ),
+        vpc_access=gcp.cloudrunv2.ServiceTemplateVpcAccessArgs(
+            egress="ALL_TRAFFIC",
+            network_interfaces=[
+                gcp.cloudrunv2.ServiceTemplateVpcAccessNetworkInterfaceArgs(
+                    network=app_vpc.id,
+                    subnetwork=app_subnet.id,
+                )
+            ],
+        ),
         containers=[
             gcp.cloudrunv2.ServiceTemplateContainerArgs(
                 image=image_name,
-                envs=[gcp_env],
+                envs=[gcp_env, valkey_host_env, valkey_port_env],
                 startup_probe=startup_probe,
                 liveness_probe=liveness_probe,
             )
         ],
     ),
     opts=pulumi.ResourceOptions(
-        depends_on=[frontend_bucket_sync, push_image, gemini_sa]
+        depends_on=[
+            frontend_bucket_sync,
+            push_image,
+            gemini_sa,
+            # vpc_access_iam,
+            valkey_instance,
+            # vpc_connector,
+        ]
     ),
 )
 
@@ -205,3 +305,5 @@ invalidate_cdn_cache = command.local.Command(
 
 pulumi.export("url", service.uri)
 pulumi.export("load_balancer_ip", global_ip.address)
+pulumi.export("valkey_host", valkey_host)
+pulumi.export("valkey_port", "6379")
