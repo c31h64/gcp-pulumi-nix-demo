@@ -80,7 +80,7 @@ repo = gcp.artifactregistry.Repository(
 
 push_image = command.local.Command(
     "push-docker-image",
-    create="just push",
+    create="just api-image-push",
     triggers=[pulumi.asset.FileArchive("../app")],
     opts=pulumi.ResourceOptions(depends_on=[repo]),
 )
