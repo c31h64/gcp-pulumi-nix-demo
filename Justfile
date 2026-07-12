@@ -29,7 +29,7 @@ bootstrap: auth
     @echo "Bootstrap complete."
 
 api-image-build:
-    nix build .#api_image -o api-image.tar.gz
+    FASTEMBED_CACHE_PATH="$PWD/.fastembed_cache" nix build --impure .#api_image -o api-image.tar.gz
 
 api-container-smoke-test: api-image-build
     gunzip -c ./api-image.tar.gz > api-image.tar
@@ -93,6 +93,9 @@ pulumi-refresh:
 
 pulumi-stack-rmf:
     {{pulumi}} stack rm --force
+
+pulumi-stack-init-dev:
+    {{pulumi}} stack init dev
 
 #############################################################################################################
 valkey-docker-run:
