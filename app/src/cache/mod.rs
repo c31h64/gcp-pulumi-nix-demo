@@ -43,7 +43,9 @@ impl Cache {
         let port = env::var("VALKEY_PORT").unwrap_or_else(|_| "6379".to_string());
         let port: u16 = port.parse()?;
 
+        tracing::info!("About to instantiate valkey client!");
         let valkey_client = get_valkey_client(host.as_str(), port).await?;
+        tracing::info!("Instantiated valkey client!");
         let embed = VecEmbed::try_new().await?;
 
         let cache = Cache {

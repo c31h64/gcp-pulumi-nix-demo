@@ -35,15 +35,15 @@ async fn create_vertex_client() -> anyhow::Result<VertexClient> {
 
 #[derive(Clone)]
 struct AppState {
-    client: Arc<VertexClient>,
+    // client: Arc<VertexClient>,
     cache: Cache,
 }
 
 impl AppState {
     async fn try_new() -> anyhow::Result<AppState> {
         let client = Arc::new(create_vertex_client().await?);
-        let cache = Cache::try_new(client.clone()).await?;
-        Ok(AppState { client, cache })
+        let cache = Cache::try_new(client).await?;
+        Ok(AppState { cache })
     }
 }
 
@@ -53,10 +53,15 @@ async fn health_check() -> StatusCode {
 }
 
 async fn ready_check(State(state): State<AppState>) -> StatusCode {
-    let client = state.client;
-    let request = GenerateContentRequest::new("Ping!");
+    tracing::info!("About to call the ready_check function!");
 
-    let response = client.generate_content(MODEL_NAME, &request).await;
+    let prompt = "Ping!";
+    let request = GenerateContentRequest::new(prompt);
+
+    let cache = state.cache;
+    let response = cache
+        .fetch_approximate_with_threshold(request, prompt, 0.1)
+        .await;
 
     match response {
         Ok(_) => StatusCode::OK,
