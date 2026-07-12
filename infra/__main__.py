@@ -18,6 +18,7 @@ app_subnet = gcp.compute.Subnetwork(
     region=LOCATION,
     network=app_vpc.id,
     private_ip_google_access=True,
+    opts=pulumi.ResourceOptions(depends_on=[app_vpc])
 )
 
 valkey_service_connection_policy = gcp.networkconnectivity.ServiceConnectionPolicy(
@@ -29,6 +30,7 @@ valkey_service_connection_policy = gcp.networkconnectivity.ServiceConnectionPoli
     psc_config={
         "subnetworks": [app_subnet.id],
     },
+    opts=pulumi.ResourceOptions(depends_on=[app_vpc, app_subnet]),
 )
 
 valkey_instance = gcp.memorystore.Instance(
@@ -50,14 +52,6 @@ valkey_instance = gcp.memorystore.Instance(
     mode="CLUSTER",
     opts=pulumi.ResourceOptions(depends_on=[valkey_service_connection_policy]),
 )
-
-# vpc_connector = gcp.vpcaccess.Connector(
-#     "twt-cloudrun-vpc-connector",
-#     name="twt-cloudrun-connector",
-#     region=LOCATION,
-#     network=app_vpc.name,
-#     ip_cidr_range="10.8.0.0/28",
-# )
 
 frontend_bucket = gcp.storage.Bucket(
     "frontend-bucket",
@@ -118,17 +112,17 @@ liveness_probe = gcp.cloudrunv2.ServiceTemplateContainerLivenessProbeArgs(
     period_seconds=15,
 )
 
-gemini_sa = gcp.serviceaccount.Account(
-    "gemini-sa",
+cloud_run_sa = gcp.serviceaccount.Account(
+    "cloud-run-sa",
     account_id="gemini-access-sa",
-    display_name="Service account for Gemini API access",
+    display_name="Service account for the main CloudRun API access",
 )
 
-sa_iam = gcp.projects.IAMMember(
-    "gemini-sa-iam",
+cloud_run_aiplatform_sa_iam = gcp.projects.IAMMember(
+    "cloud-run-sa-aiplatform-iam",
     project=gcp.config.project,
     role="roles/aiplatform.user",
-    member=gemini_sa.email.apply(lambda email: f"serviceAccount:{email}"),
+    member=cloud_run_sa.email.apply(lambda email: f"serviceAccount:{email}"),
 )
 
 # vpc_access_iam = gcp.projects.IAMMember(
@@ -167,15 +161,7 @@ service = gcp.cloudrunv2.Service(
     ingress="INGRESS_TRAFFIC_ALL",
     deletion_protection=False,
     template=gcp.cloudrunv2.ServiceTemplateArgs(
-        service_account=gemini_sa.email,
-        # vpc_access=gcp.cloudrunv2.ServiceTemplateVpcAccessArgs(
-        #     connector=vpc_connector.name.apply(
-        #         lambda name: (
-        #             f"projects/{gcp.config.project}/locations/{LOCATION}/connectors/{name}"
-        #         )
-        #     ),
-        #     egress="ALL_TRAFFIC",
-        # ),
+        service_account=cloud_run_sa.email,
         vpc_access=gcp.cloudrunv2.ServiceTemplateVpcAccessArgs(
             egress="ALL_TRAFFIC",
             network_interfaces=[
@@ -198,10 +184,8 @@ service = gcp.cloudrunv2.Service(
         depends_on=[
             frontend_bucket_sync,
             push_image,
-            gemini_sa,
-            # vpc_access_iam,
+            cloud_run_sa,
             valkey_instance,
-            # vpc_connector,
         ]
     ),
 )
@@ -300,7 +284,9 @@ invalidate_cdn_cache = command.local.Command(
         lambda name: f"gcloud compute url-maps invalidate-cdn-cache {name} --path '/*'"
     ),
     triggers=[frontend_bucket_sync.urn],
-    opts=pulumi.ResourceOptions(depends_on=[frontend_bucket_sync, url_map]),
+    opts=pulumi.ResourceOptions(
+        depends_on=[frontend_bucket_sync, url_map, forwarding_rule]
+    ),
 )
 
 pulumi.export("url", service.uri)
