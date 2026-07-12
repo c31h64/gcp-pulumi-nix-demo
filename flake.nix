@@ -10,7 +10,7 @@
       pkgs = nixpkgs.legacyPackages.${system};
     in
     {
-      packages.${system}.container = pkgs.callPackage ./container.nix { };
+      packages.${system}.api_image = pkgs.callPackage ./api_image.nix { };
 
       devShells.${system}.default = pkgs.mkShell {
         packages = [
@@ -33,6 +33,7 @@
           pkgs.valkey
           pkgs.openssl    # Required by ort-sys / libssl
           pkgs.pkg-config # Required to find the openssl library
+          pkgs.gitleaks
         ];
         
         shellHook = ''

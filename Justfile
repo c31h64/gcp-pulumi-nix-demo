@@ -28,26 +28,17 @@ bootstrap: auth
     
     @echo "Bootstrap complete."
 
-invalidate-cdn-cache:
-    #!/usr/bin/env fish
-    set -l url_maps (gcloud compute url-maps list --format="value(name)" | grep url-map-)
-    
-    for map in $url_maps
-        echo "Invalidating $map..."
-        gcloud compute url-maps invalidate-cdn-cache "$map" --path="/*"
-    end
+api-image-build:
+    nix build .#api_image -o api-image.tar.gz
 
-build:
-    nix build .#container -o result.tar.gz
-
-container-smoke-test: build
-    gunzip -c ./result.tar.gz > result.tar
+api-container-smoke-test: api-image-build
+    gunzip -c ./api-image.tar.gz > api-image.tar
     docker load < result.tar
     docker rm -f axum-demo-hw-smoke >/dev/null 2>&1 || true
     docker run --rm --network host --name axum-demo-hw-smoke --entrypoint /bin/sh axum-demo-hw:latest -lc 'test -d /var/cache/fastembed && find /var/cache/fastembed -maxdepth 3 -type f | head -5 && find /nix/store -path "*/lib/libonnxruntime.so*" | head -5'
-    rm -f result.tar
+    rm -f api-image.tar
 
-run-container: build
+run-api-container: api-image-build
     docker rm -f axum-demo-hw-local >/dev/null 2>&1 || true
     docker run -d --network host --name axum-demo-hw-local \
         -e PORT=8080 \
@@ -66,30 +57,53 @@ run-container: build
     @echo "--- container logs ---"
     @docker logs axum-demo-hw-local 2>&1 | tail -50 || true
 
-stop-container:
+stop-api-image-container:
     docker rm -f axum-demo-hw-local >/dev/null 2>&1 || true
 
+#############################################################################################################
 build-frontend:
     cd frontend && ng build
 
-push: build
-    gunzip -c ./result.tar.gz > result.tar
+api-image-push: api-image-build
+    gunzip -c ./api-image.tar.gz > api-image.tar
 
     @gcloud auth print-access-token | crane auth login -u oauth2accesstoken --password-stdin europe-west1-docker.pkg.dev
 
-    crane push ./result.tar europe-west1-docker.pkg.dev/c31h64-threewhitetowers/c31h64-twt-repo/axum-demo-hw:latest
+    crane push ./api-image.tar europe-west1-docker.pkg.dev/c31h64-threewhitetowers/c31h64-twt-repo/axum-demo-hw:latest
 
-    rm result.tar
+    rm api-image.tar
+
+#############################################################################################################
+
+export GOOGLE_APPLICATION_CREDENTIALS := invocation_directory() + "/.gcloud/application_default_credentials.json"
+pulumi := "cd infra && pulumi"
+
+pulumi-deploy:
+    {{pulumi}} up --yes
+
+pulumi-preview:
+    cd infra && pwd
+    {{pulumi}} preview
     
-deploy:
-    cd infra && GOOGLE_APPLICATION_CREDENTIALS="../.gcloud/application_default_credentials.json" pulumi up --yes
+pulumi-destroy:
+    {{pulumi}} destroy --yes --continue-on-error
 
-preview:
-    cd infra && GOOGLE_APPLICATION_CREDENTIALS="../.gcloud/application_default_credentials.json" pulumi preview
-    
-destroy:
-    cd infra && GOOGLE_APPLICATION_CREDENTIALS="../.gcloud/application_default_credentials.json" pulumi destroy
+pulumi-refresh:
+    {{pulumi}} refresh --yes
 
-valkey-run:
+pulumi-stack-rmf:
+    {{pulumi}} stack rm --force
+
+#############################################################################################################
+valkey-docker-run:
     # docker run --rm -it --name valkey-search --net=host valkey/valkey-bundle:latest valkey-server --loadmodule /usr/lib/valkey/libsearch.so --save "" --appendonly no
     docker run --rm -it --name valkey-search --net=host valkey/valkey-bundle:latest valkey-server --save "" --appendonly no
+
+invalidate-cdn-cache:
+    #!/usr/bin/env fish
+    set -l url_maps (gcloud compute url-maps list --format="value(name)" | grep url-map-)
+    
+    for map in $url_maps
+        echo "Invalidating $map..."
+        gcloud compute url-maps invalidate-cdn-cache "$map" --path="/*"
+    end

@@ -4,3 +4,5 @@ app/target/
 result*
 *node_modules*
 dump.rdb
+*.tar
+*.tar.gz
