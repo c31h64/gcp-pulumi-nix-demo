@@ -18,7 +18,7 @@ app_subnet = gcp.compute.Subnetwork(
     region=LOCATION,
     network=app_vpc.id,
     private_ip_google_access=True,
-    opts=pulumi.ResourceOptions(depends_on=[app_vpc])
+    opts=pulumi.ResourceOptions(depends_on=[app_vpc]),
 )
 
 valkey_service_connection_policy = gcp.networkconnectivity.ServiceConnectionPolicy(
@@ -45,12 +45,27 @@ valkey_instance = gcp.memorystore.Instance(
     ],
     location=LOCATION,
     node_type="SHARED_CORE_NANO",
-    transit_encryption_mode="TRANSIT_ENCRYPTION_DISABLED",
-    authorization_mode="AUTH_DISABLED",
-    engine_version="VALKEY_7_2",
+    transit_encryption_mode="SERVER_AUTHENTICATION",
+    authorization_mode="AUTH_TOKEN",
+    engine_version="VALKEY_9_1",
     deletion_protection_enabled=False,
     mode="CLUSTER",
     opts=pulumi.ResourceOptions(depends_on=[valkey_service_connection_policy]),
+)
+
+valkey_password = valkey_instance.discovery_endpoints[0].auth_token
+valkey_secret = gcp.secretmanager.Secret(
+    "valkey-password-secret",
+    secret_id="valkey-password",
+    replication=gcp.secretmanager.SecretReplicationArgs(
+        auto=gcp.secretmanager.SecretReplicationAutoArgs()
+    ),
+)
+
+valkey_secret_version = gcp.secretmanager.SecretVersion(
+    "valkey-password-secret-version",
+    secret=valkey_secret.id,
+    secret_data=valkey_password,
 )
 
 frontend_bucket = gcp.storage.Bucket(
@@ -114,7 +129,7 @@ liveness_probe = gcp.cloudrunv2.ServiceTemplateContainerLivenessProbeArgs(
 
 cloud_run_sa = gcp.serviceaccount.Account(
     "cloud-run-sa",
-    account_id="gemini-access-sa",
+    account_id="cloudrun-access-sa",
     display_name="Service account for the main CloudRun API access",
 )
 
@@ -122,6 +137,13 @@ cloud_run_aiplatform_sa_iam = gcp.projects.IAMMember(
     "cloud-run-sa-aiplatform-iam",
     project=gcp.config.project,
     role="roles/aiplatform.user",
+    member=cloud_run_sa.email.apply(lambda email: f"serviceAccount:{email}"),
+)
+
+secret_accessor_iam = gcp.secretmanager.SecretIamMember(
+    "cloud-run-secret-access",
+    secret_id=valkey_secret.id,
+    role="roles/secretmanager.secretAccessor",
     member=cloud_run_sa.email.apply(lambda email: f"serviceAccount:{email}"),
 )
 
@@ -154,6 +176,16 @@ valkey_port_env = gcp.cloudrunv2.ServiceTemplateContainerEnvArgs(
     name="VALKEY_PORT", value="6379"
 )
 
+valkey_pass_env = gcp.cloudrunv2.ServiceTemplateContainerEnvArgs(
+    name="VALKEY_PASSWORD",
+    value_source=gcp.cloudrunv2.ServiceTemplateContainerEnvValueSourceArgs(
+        secret_key_ref=gcp.cloudrunv2.ServiceTemplateContainerEnvValueSourceSecretKeyRefArgs(
+            secret=valkey_secret.secret_id,
+            version="latest",  # Automatically pin to latest version
+        )
+    ),
+)
+
 service = gcp.cloudrunv2.Service(
     "c31h64-twt-axum-demo-hw-service",
     location=LOCATION,
@@ -174,7 +206,7 @@ service = gcp.cloudrunv2.Service(
         containers=[
             gcp.cloudrunv2.ServiceTemplateContainerArgs(
                 image=image_name,
-                envs=[gcp_env, valkey_host_env, valkey_port_env],
+                envs=[gcp_env, valkey_host_env, valkey_port_env, valkey_pass_env],
                 startup_probe=startup_probe,
                 liveness_probe=liveness_probe,
             )
