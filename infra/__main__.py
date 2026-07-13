@@ -1,5 +1,6 @@
 import pulumi
 import pulumi_gcp as gcp
+import pulumi_random as random
 import pulumi_command as command
 import pulumi_synced_folder as psf
 
@@ -30,12 +31,15 @@ valkey_service_connection_policy = gcp.networkconnectivity.ServiceConnectionPoli
     psc_config={
         "subnetworks": [app_subnet.id],
     },
-    opts=pulumi.ResourceOptions(depends_on=[app_vpc, app_subnet]),
+    opts=pulumi.ResourceOptions(
+        depends_on=[app_vpc, app_subnet],
+        delete_before_replace=True,
+    ),
 )
 
 valkey_instance = gcp.memorystore.Instance(
-    "twt-valkey-instance",
-    instance_id="c31h64-twt-valkey",
+    "twt-valkey-instance-2",
+    instance_id="c31h64-twt-valkey-2",
     shard_count=1,
     desired_auto_created_endpoints=[
         {
@@ -46,14 +50,22 @@ valkey_instance = gcp.memorystore.Instance(
     location=LOCATION,
     node_type="SHARED_CORE_NANO",
     transit_encryption_mode="SERVER_AUTHENTICATION",
-    authorization_mode="AUTH_TOKEN",
-    engine_version="VALKEY_9_1",
+    authorization_mode="IAM_AUTH",
+    engine_version="VALKEY_9_0",
     deletion_protection_enabled=False,
     mode="CLUSTER",
-    opts=pulumi.ResourceOptions(depends_on=[valkey_service_connection_policy]),
+    opts=pulumi.ResourceOptions(
+        depends_on=[valkey_service_connection_policy],
+        # import_=f"{LOCATION}/c31h64-twt-valkey",
+    ),
 )
 
-valkey_password = valkey_instance.discovery_endpoints[0].auth_token
+valkey_password = random.RandomPassword(
+    "valkey-generated-password",
+    length=32,
+    special=False,
+).result
+
 valkey_secret = gcp.secretmanager.Secret(
     "valkey-password-secret",
     secret_id="valkey-password",
@@ -147,26 +159,22 @@ secret_accessor_iam = gcp.secretmanager.SecretIamMember(
     member=cloud_run_sa.email.apply(lambda email: f"serviceAccount:{email}"),
 )
 
-# vpc_access_iam = gcp.projects.IAMMember(
-#     "cloudrun-vpc-access-iam",
-#     project=gcp.config.project,
-#     role="roles/vpcaccess.user",
-#     member=gemini_sa.email.apply(lambda email: f"serviceAccount:{email}"),
-# )
 
 gcp_env = gcp.cloudrunv2.ServiceTemplateContainerEnvArgs(
     name="GOOGLE_CLOUD_PROJECT", value=gcp.config.project
 )
 
-valkey_host = valkey_instance.endpoints.apply(
-    lambda endpoints: (
-        endpoints[0].connections[0].psc_auto_connection.ip_address
-        if endpoints
-        and endpoints[0].connections
-        and endpoints[0].connections[0].psc_auto_connection
-        else ""
-    )
-)
+def pick_discovery_ip(endpoints):
+    for endpoint in endpoints:
+        for connection in endpoint.connections:
+            psc = connection.psc_auto_connection
+            if psc and psc.connection_type == "CONNECTION_TYPE_DISCOVERY":
+                return psc.ip_address
+
+    raise ValueError("No PSC discovery IP was returned by GCP for the Valkey instance.")
+
+
+valkey_host = valkey_instance.endpoints.apply(pick_discovery_ip)
 
 valkey_host_env = gcp.cloudrunv2.ServiceTemplateContainerEnvArgs(
     name="VALKEY_HOST", value=valkey_host

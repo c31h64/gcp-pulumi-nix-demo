@@ -19,6 +19,7 @@ bootstrap: auth
     gcloud services enable vpcaccess.googleapis.com
     gcloud services enable networkconnectivity.googleapis.com
     gcloud services enable memorystore.googleapis.com
+    gcloud services enable secretmanager.googleapis.com
         
     cd infra/
     pulumi login gs://c31h64-threewhitetowers-pulumi-state
