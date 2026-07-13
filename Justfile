@@ -98,9 +98,16 @@ pulumi-stack-init-dev:
     {{pulumi}} stack init dev
 
 #############################################################################################################
-valkey-docker-run:
-    # docker run --rm -it --name valkey-search --net=host valkey/valkey-bundle:latest valkey-server --loadmodule /usr/lib/valkey/libsearch.so --save "" --appendonly no
-    docker run --rm -it --name valkey-search --net=host valkey/valkey-bundle:latest valkey-server --save "" --appendonly no
+valkey-server-docker-run:
+    docker run --rm -it \
+      --name valkey-search \
+      --net=host \
+      valkey/valkey-bundle:latest \
+      valkey-server --save "" --appendonly no \
+      --requirepass "$VALKEY_PASSWORD"
+
+valkey-cli-run:
+    REDISCLI_AUTH=$VALKEY_PASSWORD valkey-cli
 
 invalidate-cdn-cache:
     #!/usr/bin/env fish

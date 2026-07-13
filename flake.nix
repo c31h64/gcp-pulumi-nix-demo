@@ -50,6 +50,10 @@
           export GOOGLE_CLOUD_LOCATION="global"
 
           export PULUMI_CONFIG_PASSPHRASE=$(cat ".pulumi-pass-plaintext.txt" | tr -d '\n')
+          export VALKEY_HOST="localhost"
+          export VALKEY_PORT="6379"
+          export VALKEY_PASSWORD=$(cat ".valkey-pass-plaintext.txt" | tr -d '\n')
+          
           export PYO3_PYTHON="${pkgs.python3}/bin/python3"
           export PATH="$PWD/angularcli/node_modules/.bin:$PATH"
         '';

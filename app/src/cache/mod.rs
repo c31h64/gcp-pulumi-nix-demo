@@ -9,8 +9,12 @@ use ferriskey::{Client, ClientBuilder, FromValue, Value};
 use std::{env, sync::Arc};
 use threatflux_vertex_rust_sdk::{GenerateContentRequest, GenerateContentResponse, VertexClient};
 
-async fn get_valkey_client(host: &str, port: u16) -> ferriskey::Result<Client> {
-    ClientBuilder::new().host(host, port).build().await
+async fn get_valkey_client(host: &str, port: u16, pass: &str) -> ferriskey::Result<Client> {
+    ClientBuilder::new()
+        .host(host, port)
+        .password(pass)
+        .build()
+        .await
 }
 
 fn vec_floats_to_bytes(floats: &[f32]) -> Vec<u8> {
@@ -39,12 +43,14 @@ pub struct Cache {
 
 impl Cache {
     pub async fn try_new(vertexai_client: Arc<VertexClient>) -> anyhow::Result<Self> {
-        let host = env::var("VALKEY_HOST").unwrap_or_else(|_| "localhost".to_string());
-        let port = env::var("VALKEY_PORT").unwrap_or_else(|_| "6379".to_string());
+        let host = env::var("VALKEY_HOST")?;
+        let port = env::var("VALKEY_PORT")?;
         let port: u16 = port.parse()?;
 
+        let pass = env::var("VALKEY_PASSWORD")?;
+
         tracing::info!("About to instantiate valkey client!");
-        let valkey_client = get_valkey_client(host.as_str(), port).await?;
+        let valkey_client = get_valkey_client(host.as_str(), port, pass.as_str()).await?;
         tracing::info!("Instantiated valkey client!");
         let embed = VecEmbed::try_new().await?;
 
